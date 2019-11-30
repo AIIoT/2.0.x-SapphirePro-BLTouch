@@ -22,7 +22,7 @@
 
 /*
 
-  u8g_dev_tft_320x240_upscale_from_128x64.cpp
+  u8g_dev_tft_480x320_upscale_from_128x64.cpp
 
   Universal 8bit Graphics Library
 
@@ -60,21 +60,20 @@
 
   ToDo:
 
-  * done - linear upscale algorithm to safe cpu
+  * DONE - linear upscale algorithm to safe cpu
+  * DONE - touchUI in general
+  * DONE - check touch control to match hotzones to desired design
+    (not quite exact but reasonable close)
   * color selection / temperature indicator
     (see old MKS version)
   * G-Code control ("on/off"/"brightness"/color profiles)
   * nyan cat
 
   longterm:
-  * make selectable upscale options (in own classes)
-  * configurable through main/board config
+  * DONE make selectable upscale options (in own classes)
+    * still missing non-DMA mode
+  * DONE configurable through main/board config
   * submit to marlin
-
-  done:
-  * touchUI in general --> done
-  * check touch control to match hotzones to desired design --> done
-    (not quite exact but reasonable close)
 
   */
 
@@ -169,7 +168,7 @@ x ||^24    ^136   ^248   ^360   ||/___ y = 301 px
 #define COLOR_DARKGREY    0x4208  // #404040
 #define COLOR_DARKGREY2   0x39E7  // #303030
 #define COLOR_DARK        0x0003  // Some dark color
-#define COLOR_SKYBLUE	    0x07DF  // 0x00FBFE 
+#define COLOR_SKYBLUE	    0x07DF  // 0x00FBFE
 
 #define COLOR_RED         0xF800  // #FF0000
 #define COLOR_LIME        0x7E00  // #00FF00
@@ -199,7 +198,7 @@ x ||^24    ^136   ^248   ^360   ||/___ y = 301 px
   #define TFT_DISABLED_COLOR COLOR_DARK
 #endif
 #ifndef TFT_BTCANCEL_COLOR
-  #define TFT_BTCANCEL_COLOR COLOR_WHITE
+  #define TFT_BTCANCEL_COLOR COLOR_RED
 #endif
 #ifndef TFT_BTARROWS_COLOR
   #define TFT_BTARROWS_COLOR COLOR_WHITE
@@ -208,7 +207,44 @@ x ||^24    ^136   ^248   ^360   ||/___ y = 301 px
   #define TFT_BTOKMENU_COLOR COLOR_WHITE
 #endif
 
+#ifndef TFT_PRESET_UI_0
+  #define TFT_PRESET_UI_0 COLOR_WHITE
+#endif
+#ifndef TFT_PRESET_BG_0
+  #define TFT_PRESET_BG_0 COLOR_BLACK
+#endif
+#ifndef TFT_PRESET_UI_1
+  #define TFT_PRESET_UI_1 COLOR_SKYBLUE //COLOR_WHITE
+#endif
+#ifndef TFT_PRESET_BG_1
+  #define TFT_PRESET_BG_1 COLOR_BLACK //COLOR_NAVY
+#endif
+#ifndef TFT_PRESET_UI_2
+  #define TFT_PRESET_UI_2 COLOR_BLACK
+#endif
+#ifndef TFT_PRESET_BG_2
+  #define TFT_PRESET_BG_2 COLOR_WHITE
+#endif
+#ifndef TFT_PRESET_UI_3
+  #define TFT_PRESET_UI_3 COLOR_DARK
+#endif
+#ifndef TFT_PRESET_BG_3
+  #define TFT_PRESET_BG_3 COLOR_OLIVE
+#endif
+#ifndef TFT_PRESET_UI_4
+  #define TFT_PRESET_UI_4 COLOR_WHITE
+#endif
+#ifndef TFT_PRESET_BG_4
+  #define TFT_PRESET_BG_4 COLOR_NAVY
+#endif
+
+
+
 static uint32_t lcd_id = 0;
+uint16_t bg_color = TFT_MARLINBG_COLOR;
+uint16_t ui_color = TFT_MARLINUI_COLOR;
+static bool reqDrawButtons = false;
+static bool reqClearScreen = false;
 
 #define U8G_ESC_DATA(x) (uint8_t)(x >> 8), (uint8_t)(x & 0xFF)
 
@@ -472,18 +508,44 @@ static const uint8_t ili9341_init_sequence[] = { // 0x9341 - ILI9341
   // *check for button sizes and how to upscale to fit on screen
   // *check if other parts of marlin use drawImage
 
- static void drawImage(const uint8_t *data, u8g_t *u8g, u8g_dev_t *dev, uint16_t length, uint16_t height, uint16_t color) {
+  static void switchColor(uint16_t uiColor, uint16_t bgColor) {
+    ui_color = uiColor;
+    bg_color = bgColor;
+  }
+
+    static void clearScreen() {
+    reqClearScreen = true;
+  }
+
+  static void drawButtons() {
+    reqDrawButtons = true;
+  }
+
+  void switchColorPreset(uint8_t colorPreset) {
+    switch (colorPreset)
+    {
+      case 1: switchColor(TFT_PRESET_UI_1, TFT_PRESET_BG_1); break;
+      case 2: switchColor(TFT_PRESET_UI_2, TFT_PRESET_BG_2); break;
+      case 3: switchColor(TFT_PRESET_UI_3, TFT_PRESET_BG_3); break;
+      case 4: switchColor(TFT_PRESET_UI_4, TFT_PRESET_BG_4); break;
+      default: switchColor(TFT_PRESET_UI_0, TFT_PRESET_BG_0); break;
+    }
+    drawButtons();
+    clearScreen();
+  }
+
+  static void drawImage(const uint8_t *data, u8g_t *u8g, u8g_dev_t *dev, uint16_t length, uint16_t height, uint16_t color) {
     static uint16_t p_buffer[288];
     uint16_t* buffer = &p_buffer[0];
 
     for (uint16_t i = 0; i < height; i++) {
       uint32_t k = 0;
       for (uint16_t j = 0; j < length; j++) {
-        uint16_t v = TFT_MARLINBG_COLOR;
+        uint16_t v = bg_color;
         if (*(data + (i * (length >> 3) + (j >> 3))) & (0x80 >> (j & 7)))
           v = color;
         else
-          v = TFT_MARLINBG_COLOR;
+          v = bg_color;
 
         // linear write should be faster
         // optimize later
@@ -543,10 +605,33 @@ inline void memset2(const void *ptr, uint16_t fill, size_t cnt) {
   for (size_t i = 0; i < cnt; i += 2) { *wptr = fill; wptr++; }
 }
 
+static void clearScreenSequence(u8g_t *u8g, u8g_dev_t *dev) {
+  u8g_WriteEscSeqP(u8g, dev, clear_screen_sequence);
+  #ifdef LCD_USE_DMA_FSMC
+    LCD_IO_WriteMultiple(bg_color, (480*320));
+  #endif
+}
+
+static void drawButtonSequence(u8g_t *u8g, u8g_dev_t *dev) {
+  #if ENABLED(TOUCH_BUTTONS)
+    u8g_WriteEscSeqP(u8g, dev, buttonD_sequence);
+    drawImage(buttonD, u8g, dev, 32, 20, ui_color);
+
+    u8g_WriteEscSeqP(u8g, dev, buttonA_sequence);
+    drawImage(buttonA, u8g, dev, 32, 20, ui_color);
+
+    u8g_WriteEscSeqP(u8g, dev, buttonB_sequence);
+    drawImage(buttonB, u8g, dev, 32, 20, ui_color);
+
+    u8g_WriteEscSeqP(u8g, dev, buttonC_sequence);
+    drawImage(buttonC, u8g, dev, 32, 20, ui_color);
+  #endif // TOUCH_BUTTONS
+}
+
 static bool preinit = true;
 static uint8_t page;
 
-uint8_t u8g_dev_tft_320x240_upscale_from_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, void *arg) {
+uint8_t u8g_dev_tft_480x320_upscale_from_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, uint8_t msg, void *arg) {
   u8g_pb_t *pb = (u8g_pb_t *)(dev->dev_mem);
   #ifdef LCD_USE_DMA_FSMC
     // new buffer sizes needed?
@@ -573,49 +658,33 @@ uint8_t u8g_dev_tft_320x240_upscale_from_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, u
       }
 
       // Clear Screen Sequence
-      u8g_WriteEscSeqP(u8g, dev, clear_screen_sequence);
-      #ifdef LCD_USE_DMA_FSMC
-        //LCD_IO_WriteMultiple(TFT_MARLINBG_COLOR, (320*240)); //@ why hard coded resolution
-        LCD_IO_WriteMultiple(TFT_MARLINBG_COLOR, (480*320));
-      #else
-        memset2(buffer, TFT_MARLINBG_COLOR, 160);
-        for (uint16_t i = 0; i < 960; i++)
-          u8g_WriteSequence(u8g, dev, 160, (uint8_t *)buffer);
-      #endif
+      // u8g_WriteEscSeqP(u8g, dev, clear_screen_sequence);
+      // #ifdef LCD_USE_DMA_FSMC
+      //   LCD_IO_WriteMultiple(bg_color, (480*320));
+      // #else
+      //   memset2(buffer, TFT_MARLINBG_COLOR, 160);
+      //   for (uint16_t i = 0; i < 960; i++)
+      //     u8g_WriteSequence(u8g, dev, 160, (uint8_t *)buffer);
+      // #endif
 
-      // bottom line and buttons
-      #if ENABLED(TOUCH_BUTTONS)
+      clearScreenSequence(u8g, dev);
+      drawButtonSequence(u8g, dev);
 
-        // why the linewrites
+      // // bottom line and buttons
+      // #if ENABLED(TOUCH_BUTTONS)
+      //   //@ check button sizes
+      //   u8g_WriteEscSeqP(u8g, dev, buttonD_sequence);
+      //   drawImage(buttonD, u8g, dev, 32, 20, TFT_BTCANCEL_COLOR);
 
-        // #ifdef LCD_USE_DMA_FSMC
-        //   u8g_WriteEscSeqP(u8g, dev, separation_line_sequence_left);
-        //   LCD_IO_WriteMultiple(TFT_DISABLED_COLOR, 300);
-        //   u8g_WriteEscSeqP(u8g, dev, separation_line_sequence_right);
-        //   LCD_IO_WriteMultiple(TFT_DISABLED_COLOR, 300);
-        // #else
-        //   memset2(buffer, TFT_DISABLED_COLOR, 150);
-        //   u8g_WriteEscSeqP(u8g, dev, separation_line_sequence_left);
-        //   for (uint8_t i = 4; i--;)
-        //     u8g_WriteSequence(u8g, dev, 150, (uint8_t *)buffer);
-        //   u8g_WriteEscSeqP(u8g, dev, separation_line_sequence_right);
-        //   for (uint8_t i = 4; i--;)
-        //     u8g_WriteSequence(u8g, dev, 150, (uint8_t *)buffer);
-        // #endif
+      //   u8g_WriteEscSeqP(u8g, dev, buttonA_sequence);
+      //   drawImage(buttonA, u8g, dev, 32, 20, TFT_BTARROWS_COLOR);
 
-        //@ check button sizes
-        u8g_WriteEscSeqP(u8g, dev, buttonD_sequence);
-        drawImage(buttonD, u8g, dev, 32, 20, TFT_BTCANCEL_COLOR);
+      //   u8g_WriteEscSeqP(u8g, dev, buttonB_sequence);
+      //   drawImage(buttonB, u8g, dev, 32, 20, TFT_BTARROWS_COLOR);
 
-        u8g_WriteEscSeqP(u8g, dev, buttonA_sequence);
-        drawImage(buttonA, u8g, dev, 32, 20, TFT_BTARROWS_COLOR);
-
-        u8g_WriteEscSeqP(u8g, dev, buttonB_sequence);
-        drawImage(buttonB, u8g, dev, 32, 20, TFT_BTARROWS_COLOR);
-
-        u8g_WriteEscSeqP(u8g, dev, buttonC_sequence);
-        drawImage(buttonC, u8g, dev, 32, 20, TFT_BTOKMENU_COLOR);
-      #endif // TOUCH_BUTTONS
+      //   u8g_WriteEscSeqP(u8g, dev, buttonC_sequence);
+      //   drawImage(buttonC, u8g, dev, 32, 20, TFT_BTOKMENU_COLOR);
+      // #endif // TOUCH_BUTTONS
 
       return 0;
 
@@ -623,40 +692,39 @@ uint8_t u8g_dev_tft_320x240_upscale_from_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, u
 
     case U8G_DEV_MSG_PAGE_FIRST:
       page = 0;
+            if (reqClearScreen)
+      {
+        clearScreenSequence(u8g, dev);
+        reqClearScreen = false;
+      }
+
+      if (reqDrawButtons)
+      {
+        drawButtonSequence(u8g, dev);
+        reqDrawButtons = false;
+      }
       u8g_WriteEscSeqP(u8g, dev, page_first_sequence);
       break;
 
     case U8G_DEV_MSG_PAGE_NEXT:
       if (++page > (HEIGHT / PAGE_HEIGHT)) return 1;
 
-      for (uint8_t y = 0; y < PAGE_HEIGHT; y++) { // loop columns Y
+      for (uint8_t y = 0; y < PAGE_HEIGHT; y++) {
         uint32_t k = 0;
         #ifdef LCD_USE_DMA_FSMC
-          buffer = (y & 1) ? bufferB : bufferA; // alternating buffers
+          buffer = (y & 1) ? bufferB : bufferA;
         #endif
-        for (uint16_t i = 0; i < (uint32_t)pb->width; i++) { //loop rows X
+        for (uint16_t i = 0; i < (uint32_t)pb->width; i++) {
           const uint8_t b = *(((uint8_t *)pb->buf) + i);
-          const uint16_t c = TEST(b, y) ? TFT_MARLINUI_COLOR : TFT_MARLINBG_COLOR;
+          const uint16_t c = TEST(b, y) ? ui_color : bg_color;
           //@ 2x upscale X
           // resulting buffersize RGB565 * 256 - 128*2
-
           //buffer[k++] = c;
           //buffer[k++] = c;
 
           //@ 3x upscale X and Y in same loop
           // 1 px -> 3*3 px
           // resulting buffersize RGB565 * 1152 - 128*3*3
-
-          // sequential write should be faster
-          // buffer[k+384] = c;
-          // buffer[k+768] = c;
-          // buffer[k++] = c;
-          // buffer[k+384] = c;
-          // buffer[k+768] = c;
-          // buffer[k++] = c;
-          // buffer[k+384] = c;
-          // buffer[k+768] = c;
-          // buffer[k++] = c;
           buffer[k++] = c;
           buffer[k++] = c;
           buffer[k++] = c;
@@ -710,6 +778,7 @@ uint8_t u8g_dev_tft_320x240_upscale_from_128x64_fn(u8g_t *u8g, u8g_dev_t *dev, u
   return u8g_dev_pb8v1_base_fn(u8g, dev, msg, arg);
 }
 
-U8G_PB_DEV(u8g_dev_tft_320x240_upscale_from_128x64, WIDTH, HEIGHT, PAGE_HEIGHT, u8g_dev_tft_320x240_upscale_from_128x64_fn, U8G_COM_HAL_FSMC_FN);
+
+U8G_PB_DEV(u8g_dev_tft_480x320_upscale_from_128x64, WIDTH, HEIGHT, PAGE_HEIGHT, u8g_dev_tft_480x320_upscale_from_128x64_fn, U8G_COM_HAL_FSMC_FN);
 
 #endif // HAS_GRAPHICAL_LCD && FSMC_CS

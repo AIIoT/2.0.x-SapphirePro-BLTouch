@@ -172,9 +172,13 @@
 
 #elif ENABLED(FSMC_GRAPHICAL_TFT)
 
-  // Unspecified 320x240 TFT pre-initialized by built-in bootloader
+  //A$ Unspecified 320x240 TFT pre-initialized by built-in bootloader
 
-  #define U8G_CLASS U8GLIB_TFT_320X240_UPSCALE_FROM_128X64
+  #if (FSMC_UPSCALE == 3)
+    #define U8G_CLASS U8GLIB_TFT_480X320_UPSCALE_FROM_128X64
+  #else
+    #define U8G_CLASS U8GLIB_TFT_320X240_UPSCALE_FROM_128X64
+  #endif
   #define U8G_PARAM FSMC_CS_PIN, FSMC_RS_PIN
 
 #else
@@ -206,10 +210,22 @@
 // LCD_FULL_PIXEL_WIDTH =
 // LCD_PIXEL_OFFSET_X + (LCD_PIXEL_WIDTH * 2) + LCD_PIXEL_OFFSET_X
 #if ENABLED(FSMC_GRAPHICAL_TFT)
-  #define LCD_FULL_PIXEL_WIDTH  320
-  #define LCD_PIXEL_OFFSET_X    32
-  #define LCD_FULL_PIXEL_HEIGHT 240
-  #define LCD_PIXEL_OFFSET_Y    32
+  //A$ 2.8" TFT
+  // #define LCD_FULL_PIXEL_WIDTH  320
+  // #define LCD_PIXEL_OFFSET_X    32
+  // #define LCD_FULL_PIXEL_HEIGHT 240
+  // #define LCD_PIXEL_OFFSET_Y    32
+  //A$ 3.5" TFT
+  #define LCD_FULL_PIXEL_WIDTH  480
+  #define LCD_PIXEL_OFFSET_X    48
+  #define LCD_FULL_PIXEL_HEIGHT 320
+  #define LCD_PIXEL_OFFSET_Y    32 // to leave at least 60px for UI
+
+  #if (FSMC_UPSCALE == 3)//A$
+    extern uint16_t ui_color;
+    extern uint16_t bg_color;
+    extern void switchColorPreset(uint8_t preset);
+  #endif
 #endif
 
 // For selective rendering within a Y range

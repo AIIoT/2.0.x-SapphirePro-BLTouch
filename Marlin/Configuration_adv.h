@@ -1387,7 +1387,7 @@
 
   #define BABYSTEP_DISPLAY_TOTAL          //A$ Display total babysteps since last G28
 
-  #define BABYSTEP_ZPROBE_OFFSET          //A$ Combine M851 Z and Babystepping
+  #define BABYSTEP_ZPROBE_OFFSET          //A$BL Combine M851 Z and Babystepping
   #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
     //#define BABYSTEP_HOTEND_Z_OFFSET      // For multiple hotends, babystep relative Z offsets
     #define BABYSTEP_ZPROBE_GFX_OVERLAY   //A$ Enable graphical overlay on Z-offset editor
@@ -1418,7 +1418,7 @@
   // K = 0 - but will be activated via gcode filament-type-specific
   // extruder seems to rattle quite hard, need to check acc/jerk settings
   //#define EXTRA_LIN_ADVANCE_K // Enable for second linear advance constants
-  #define LIN_ADVANCE_K 0    //$ Unit: mm compression per 1mm/s extruder speed
+  #define LIN_ADVANCE_K 0    //A$ Unit: mm compression per 1mm/s extruder speed
   //#define LA_DEBUG            // If enabled, this will generate debug information output over USB.
 #endif
 

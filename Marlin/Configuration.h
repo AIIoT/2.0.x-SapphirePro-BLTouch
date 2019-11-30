@@ -125,7 +125,7 @@
  *
  * :[2400, 9600, 19200, 38400, 57600, 115200, 250000, 500000, 1000000]
  */
-#define BAUDRATE 115200
+#define BAUDRATE 115200 //A$ octoprint connection issues - I guess RPi may have issues with higher baud rates.
 
 // Enable the Bluetooth serial interface on AT90USB devices
 //#define BLUETOOTH
@@ -136,7 +136,7 @@
 #endif
 
 // Name displayed in the LCD "Ready" message and Info menu
-#define CUSTOM_MACHINE_NAME "Sapphire Pro BL" //A$CF
+#define CUSTOM_MACHINE_NAME "Sapphire Pro BL" //A$BL
 
 // Printer's unique ID, used by some programs to differentiate between machines.
 // Choose your own or use a service like http://www.uuidgenerator.net/version4
@@ -861,7 +861,7 @@
  * Use G29 repeatedly, adjusting the Z height at each point with movement commands
  * or (with LCD_BED_LEVELING) the LCD controller.
  */
-//#define PROBE_MANUALLY //A$
+//#define PROBE_MANUALLY //UNO A$BL
 //#define MANUAL_PROBE_START_Z 0.2
 
 /**
@@ -1042,7 +1042,7 @@
 // @section extruder
 
 // For direct drive extruder v9 set to true, for geared extruder set to false.
-#define INVERT_E0_DIR false //A$BL
+#define INVERT_E0_DIR false //A$CF
 #define INVERT_E1_DIR false
 #define INVERT_E2_DIR false
 #define INVERT_E3_DIR false
@@ -1181,7 +1181,7 @@
 //#define AUTO_BED_LEVELING_LINEAR
 #define AUTO_BED_LEVELING_BILINEAR //A$BL
 //#define AUTO_BED_LEVELING_UBL
-//#define MESH_BED_LEVELING
+//#define MESH_BED_LEVELING //UNO A$BL
 
 /**
  * Normally G28 leaves leveling disabled on completion. Enable
@@ -1330,7 +1330,7 @@
 // - Move the Z probe (or nozzle) to a defined XY point before Z Homing when homing all axes (G28).
 // - Prevent Z homing when the Z probe is outside bed area.
 //
-#define Z_SAFE_HOMING
+#define Z_SAFE_HOMING //A$BL
 
 #if ENABLED(Z_SAFE_HOMING)
   #define Z_SAFE_HOMING_X_POINT (30)    //A$CF X point for Z homing when homing all axes (G28).

@@ -41,6 +41,8 @@ enum XPTCoordinate : uint8_t {
 class XPT2046 {
 public:
   static void init();
+  static void begin();
+  static void end();
   static uint8_t read_buttons();
   bool getTouchPoint(uint16_t &x, uint16_t &y);
   static bool isTouched();
